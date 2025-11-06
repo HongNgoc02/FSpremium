@@ -85,14 +85,36 @@ const HomeScreen = () => {
 
   const renderCategory = ({ item }: { item: Category }) => {
     const isSelected = selectedCategory === item.id;
+    
     return (
       <TouchableOpacity
-        style={isSelected ? styles.categoryItemSelected : styles.categoryItem}
+        style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
         onPress={() => setSelectedCategory(isSelected ? null : item.id)}
+        activeOpacity={0.7}
       >
-        <Text style={styles.categoryIcon}>{item.icon || '🍽️'}</Text>
-        <Text style={isSelected ? styles.categoryTextSelected : styles.categoryText}>
+        <View style={[styles.categoryIconContainer, isSelected && styles.categoryIconContainerSelected]}>
+          <Text style={styles.categoryIcon}>{item.icon || '🍽️'}</Text>
+        </View>
+        <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]} numberOfLines={1}>
           {item.name}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAllCategory = () => {
+    const isSelected = selectedCategory === null;
+    return (
+      <TouchableOpacity
+        style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+        onPress={() => setSelectedCategory(null)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.categoryIconContainer, isSelected && styles.categoryIconContainerSelected]}>
+          <Text style={styles.categoryIcon}>🍽️</Text>
+        </View>
+        <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>
+          Tất cả
         </Text>
       </TouchableOpacity>
     );
@@ -208,7 +230,9 @@ const HomeScreen = () => {
           renderItem={renderCategory}
           keyExtractor={item => item.id.toString()}
           horizontal
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesList}
+          ListHeaderComponent={renderAllCategory}
         />
       </View>
 
@@ -306,32 +330,73 @@ const styles = StyleSheet.create({
   },
   categoriesContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 15,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   categoriesList: {
     paddingHorizontal: 15,
+    paddingRight: 5,
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    marginRight: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#F8F8F8',
+    borderWidth: 1.5,
+    borderColor: '#E8E8E8',
+    minWidth: 80,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   categoryItemSelected: {
     backgroundColor: '#FF004C',
+    borderColor: '#FF004C',
+    shadowColor: '#FF004C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+    transform: [{ scale: 1.05 }],
+  },
+  categoryIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#E8E8E8',
+  },
+  categoryIconContainerSelected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   categoryIcon: {
-    fontSize: 24,
-    marginBottom: 5,
+    fontSize: 28,
   },
   categoryText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   categoryTextSelected: {
     color: '#FFFFFF',
