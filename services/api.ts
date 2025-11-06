@@ -40,7 +40,19 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error(`❌ API Error: ${error.config?.url}`, error.response?.status, error.response?.data);
+    const url = error.config?.url || '';
+    const status = error.response?.status;
+    
+    // Không log error cho 404 của payment và order-detail (đây là trường hợp bình thường)
+    const isExpected404 = status === 404 && (
+      url.includes('/payment/order/') || 
+      url.includes('/order-detail/order/')
+    );
+    
+    if (!isExpected404) {
+      console.error(`❌ API Error: ${url}`, status, error.response?.data);
+    }
+    
     return Promise.reject(error);
   }
 );

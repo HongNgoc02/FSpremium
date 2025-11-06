@@ -143,7 +143,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const getItemCount = (): number => {
-    return items.reduce((count, item) => count + item.quantity, 0);
+    return items.length; // Số sản phẩm khác nhau trong giỏ hàng
   };
 
   return (

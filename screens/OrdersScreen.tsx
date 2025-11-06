@@ -84,13 +84,23 @@ const OrdersScreen = () => {
           if (detailsResponse?.data) {
             order.OrderDetails = detailsResponse.data;
           }
+        } catch (error: any) {
+          // Ignore 404 errors - order details might not exist yet
+          if (error.response?.status !== 404) {
+            console.error('Error loading order details:', error);
+          }
+        }
 
+        try {
           const paymentResponse = await paymentAPI.getPaymentByOrderId(order.id);
           if (paymentResponse?.data) {
             order.payment_status = paymentResponse.data.status;
           }
-        } catch (error) {
-          console.error('Error loading order details:', error);
+        } catch (error: any) {
+          // Ignore 404 errors - payment might not exist yet
+          if (error.response?.status !== 404) {
+            console.error('Error loading payment info:', error);
+          }
         }
       }
 
@@ -186,7 +196,7 @@ const OrdersScreen = () => {
                 <Text style={styles.orderItemQuantity}>x{orderItem.quantity}</Text>
               </View>
               <Text style={styles.orderItemPrice}>
-                {orderItem.total_price.toLocaleString('vi-VN')} đ
+                {(orderItem.total_price || 0).toLocaleString('vi-VN')} đ
               </Text>
             </View>
           ))}
@@ -201,7 +211,7 @@ const OrdersScreen = () => {
           {formatDate(item.created_at)}
         </Text>
         <Text style={styles.orderTotal}>
-          Tổng: {item.total_price.toLocaleString('vi-VN')} đ
+          Tổng: {(item.total_price || 0).toLocaleString('vi-VN')} đ
         </Text>
       </View>
     </TouchableOpacity>
@@ -298,7 +308,7 @@ const OrdersScreen = () => {
                           <Text style={styles.detailItemName}>{item.MenuItem?.name || 'Unknown'}</Text>
                           <Text style={styles.detailItemQuantity}>Số lượng: {item.quantity}</Text>
                           <Text style={styles.detailItemPrice}>
-                            {item.total_price.toLocaleString('vi-VN')} đ
+                            {(item.total_price || 0).toLocaleString('vi-VN')} đ
                           </Text>
                         </View>
                       </View>
@@ -316,7 +326,7 @@ const OrdersScreen = () => {
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Tổng tiền:</Text>
                   <Text style={styles.totalPrice}>
-                    {selectedOrder.total_price.toLocaleString('vi-VN')} đ
+                    {(selectedOrder.total_price || 0).toLocaleString('vi-VN')} đ
                   </Text>
                 </View>
 

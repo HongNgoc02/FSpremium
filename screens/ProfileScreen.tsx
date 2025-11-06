@@ -44,21 +44,6 @@ const ProfileScreen = () => {
       title: 'Đơn hàng của tôi',
       onPress: () => navigation.navigate('Orders'),
     },
-    {
-      icon: '⚙️',
-      title: 'Cài đặt',
-      onPress: () => Alert.alert('Thông báo', 'Tính năng đang phát triển'),
-    },
-    {
-      icon: '📞',
-      title: 'Liên hệ hỗ trợ',
-      onPress: () => Alert.alert('Thông báo', 'Hotline: 1900-xxxx'),
-    },
-    {
-      icon: 'ℹ️',
-      title: 'Về ứng dụng',
-      onPress: () => Alert.alert('Thông báo', 'FoodShop App v1.0.0'),
-    },
   ];
 
   return (

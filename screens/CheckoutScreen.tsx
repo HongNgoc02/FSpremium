@@ -80,9 +80,7 @@ const CheckoutScreen = () => {
     setIsPlacing(true);
 
     try {
-      const subtotal = getTotal();
-      const shippingFee = 30000;
-      const total = subtotal + shippingFee;
+      const total = getTotal();
 
       // Create order
       const orderData = {
@@ -214,18 +212,10 @@ const CheckoutScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tạm tính:</Text>
-            <Text style={styles.totalValue}>{getTotal().toLocaleString('vi-VN')} đ</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Phí vận chuyển:</Text>
-            <Text style={styles.totalValue}>30,000 đ</Text>
-          </View>
           <View style={[styles.totalRow, styles.finalTotal]}>
             <Text style={styles.finalTotalLabel}>Tổng cộng:</Text>
             <Text style={styles.finalTotalValue}>
-              {(getTotal() + 30000).toLocaleString('vi-VN')} đ
+              {getTotal().toLocaleString('vi-VN')} đ
             </Text>
           </View>
         </View>
