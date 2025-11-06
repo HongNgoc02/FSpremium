@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,43 +15,140 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useCart } from '../context/CartContext';
-import { mockOrders } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { userAPI, orderAPI, paymentAPI } from '../services/api';
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Checkout'>;
 
 const CheckoutScreen = () => {
   const navigation = useNavigation<CheckoutScreenNavigationProp>();
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, isLoading: cartLoading } = useCart();
+  const { user } = useAuth();
   const [isPlacing, setIsPlacing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
     phone: '',
     address: '',
+    email: '',
   });
 
+  useEffect(() => {
+    loadUserData();
+  }, [user?.id]);
+
+  const loadUserData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await userAPI.getProfile(user.id);
+      const userData = response.data;
+      
+      setShippingInfo({
+        fullName: userData.fullname || '',
+        phone: userData.phone_number || '',
+        address: userData.address || '',
+        email: userData.email || '',
+      });
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePlaceOrder = async () => {
+    if (!user?.id) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để tiếp tục');
+      return;
+    }
+
     if (!shippingInfo.fullName || !shippingInfo.phone || !shippingInfo.address) {
       Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin giao hàng');
       return;
     }
 
-    setIsPlacing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsPlacing(false);
+    if (items.length === 0) {
+      Alert.alert('Lỗi', 'Giỏ hàng trống');
+      return;
+    }
 
-    Alert.alert(
-      'Thành công',
-      'Đơn hàng của bạn đã được đặt thành công!',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            clearCart();
-            navigation.navigate('Orders');
+    setIsPlacing(true);
+
+    try {
+      const subtotal = getTotal();
+      const shippingFee = 30000;
+      const total = subtotal + shippingFee;
+
+      // Create order
+      const orderData = {
+        user_Id: user.id,
+        total_price: total,
+        status: 'pending',
+        payment_status: 'pending',
+        shipping_address: shippingInfo.address,
+        full_name: shippingInfo.fullName,
+        phone_number: shippingInfo.phone,
+        email: shippingInfo.email,
+        payment_method: 'cashOnDelivery',
+      };
+
+      const orderResponse = await orderAPI.createOrder(orderData);
+      
+      if (!orderResponse.data?.order) {
+        throw new Error('Không thể tạo đơn hàng');
+      }
+
+      const orderId = orderResponse.data.order.id;
+
+      // Create order details
+      for (const item of items) {
+        await orderAPI.createOrderDetails({
+          order_Id: orderId,
+          menu_item_Id: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+          total_price: item.product.price * item.quantity,
+        });
+      }
+
+      // Create payment
+      await paymentAPI.createPayment({
+        order_Id: orderId,
+        user_Id: user.id,
+        total_payment: total,
+        method: 'cashOnDelivery',
+        status: 'pending',
+      });
+
+      // Clear cart
+      await clearCart();
+
+      Alert.alert(
+        'Thành công',
+        `Đơn hàng #${orderId} của bạn đã được đặt thành công!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.navigate('Orders');
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error placing order:', error);
+      Alert.alert(
+        'Lỗi',
+        error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại sau.'
+      );
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   return (
@@ -65,31 +162,44 @@ const CheckoutScreen = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin giao hàng</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Họ và tên"
-            value={shippingInfo.fullName}
-            onChangeText={(text) => setShippingInfo({ ...shippingInfo, fullName: text })}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Số điện thoại"
-            keyboardType="phone-pad"
-            value={shippingInfo.phone}
-            onChangeText={(text) => setShippingInfo({ ...shippingInfo, phone: text })}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Địa chỉ giao hàng"
-            multiline
-            numberOfLines={3}
-            value={shippingInfo.address}
-            onChangeText={(text) => setShippingInfo({ ...shippingInfo, address: text })}
-          />
+      {loading || cartLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF004C" />
+          <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin giao hàng</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Họ và tên"
+              value={shippingInfo.fullName}
+              onChangeText={(text) => setShippingInfo({ ...shippingInfo, fullName: text })}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              keyboardType="email-address"
+              value={shippingInfo.email}
+              onChangeText={(text) => setShippingInfo({ ...shippingInfo, email: text })}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Số điện thoại"
+              keyboardType="phone-pad"
+              value={shippingInfo.phone}
+              onChangeText={(text) => setShippingInfo({ ...shippingInfo, phone: text })}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Địa chỉ giao hàng"
+              multiline
+              numberOfLines={3}
+              value={shippingInfo.address}
+              onChangeText={(text) => setShippingInfo({ ...shippingInfo, address: text })}
+            />
+          </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Đơn hàng</Text>
@@ -120,6 +230,7 @@ const CheckoutScreen = () => {
           </View>
         </View>
       </ScrollView>
+      )}
 
       <View style={styles.footer}>
         <TouchableOpacity
@@ -251,6 +362,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
 });
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ type CartScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'C
 
 const CartScreen = () => {
   const navigation = useNavigation<CartScreenNavigationProp>();
-  const { items, updateQuantity, removeFromCart, getTotal, clearCart } = useCart();
+  const { items, isLoading, updateQuantity, removeFromCart, getTotal, clearCart } = useCart();
 
   const handleCheckout = () => {
     if (items.length === 0) {
@@ -29,10 +30,34 @@ const CartScreen = () => {
     navigation.navigate('Checkout');
   };
 
+  const handleUpdateQuantity = async (productId: number, newQuantity: number) => {
+    try {
+      await updateQuantity(productId, newQuantity);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể cập nhật số lượng');
+    }
+  };
+
+  const handleRemoveItem = async (productId: number) => {
+    try {
+      await removeFromCart(productId);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể xóa sản phẩm');
+    }
+  };
+
+  const handleClearCart = async () => {
+    try {
+      await clearCart();
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể xóa giỏ hàng');
+    }
+  };
+
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.cartItem}>
       <Image
-        source={{ uri: item.product.image }}
+        source={{ uri: item.product.image || item.product.img }}
         style={styles.itemImage}
       />
       <View style={styles.itemInfo}>
@@ -43,14 +68,14 @@ const CartScreen = () => {
         <View style={styles.quantityControls}>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.product.id, item.quantity - 1)}
+            onPress={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
           <Text style={styles.quantityValue}>{item.quantity}</Text>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.product.id, item.quantity + 1)}
+            onPress={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
           >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
@@ -71,7 +96,7 @@ const CartScreen = () => {
                 {
                   text: 'Xóa',
                   style: 'destructive',
-                  onPress: () => removeFromCart(item.product.id),
+                  onPress: () => handleRemoveItem(item.product.id),
                 },
               ]
             );
@@ -99,7 +124,7 @@ const CartScreen = () => {
                 'Bạn có chắc muốn xóa tất cả?',
                 [
                   { text: 'Hủy', style: 'cancel' },
-                  { text: 'Xóa', style: 'destructive', onPress: clearCart },
+                  { text: 'Xóa', style: 'destructive', onPress: handleClearCart },
                 ]
               );
             }}
@@ -109,7 +134,12 @@ const CartScreen = () => {
         )}
       </View>
 
-      {items.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF004C" />
+          <Text style={styles.loadingText}>Đang tải giỏ hàng...</Text>
+        </View>
+      ) : items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyText}>Giỏ hàng trống</Text>
@@ -125,7 +155,7 @@ const CartScreen = () => {
           <FlatList
             data={items}
             renderItem={renderItem}
-            keyExtractor={item => item.product.id}
+            keyExtractor={item => item.product.id.toString()}
             contentContainerStyle={styles.listContent}
           />
           <View style={styles.footer}>
@@ -309,6 +339,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
 });
 

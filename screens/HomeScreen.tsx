@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,29 +7,80 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { mockProducts, categories, Product, Category } from '../data/mockData';
+import { categoryAPI, menuItemAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'> & {
   navigate: (screen: 'ProductDetail' | 'Cart', params?: any) => void;
 };
 
+interface Category {
+  id: number;
+  name: string;
+  icon?: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  description?: string;
+  price: number;
+  img?: string;
+  image?: string;
+  cat_Id: number;
+  status: string;
+  rating?: number;
+  reviews?: number;
+}
+
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const { addToCart, getItemCount } = useCart();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredProducts = mockProducts.filter(product => {
-    const matchesCategory = !selectedCategory || product.category === selectedCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [catRes, prodRes] = await Promise.all([
+        categoryAPI.getAll(),
+        menuItemAPI.getAll(),
+      ]);
+      setCategories(catRes.data || []);
+      setProducts((prodRes.data || []).map((p: any) => ({ ...p, price: Number(p.price) })));
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
+    if (selectedCategory && product.cat_Id !== selectedCategory) return false;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query)
+      );
+    }
+    return product.status === 'available';
   });
 
   const renderCategory = ({ item }: { item: Category }) => {
@@ -39,7 +90,7 @@ const HomeScreen = () => {
         style={isSelected ? styles.categoryItemSelected : styles.categoryItem}
         onPress={() => setSelectedCategory(isSelected ? null : item.id)}
       >
-        <Text style={styles.categoryIcon}>{item.icon}</Text>
+        <Text style={styles.categoryIcon}>{item.icon || '🍽️'}</Text>
         <Text style={isSelected ? styles.categoryTextSelected : styles.categoryText}>
           {item.name}
         </Text>
@@ -47,14 +98,31 @@ const HomeScreen = () => {
     );
   };
 
+  const handleAddToCart = async (product: Product) => {
+    try {
+      await addToCart(
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.img || product.image,
+        },
+        1
+      );
+      Alert.alert('Thành công', `${product.name} đã được thêm vào giỏ hàng!`);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
+    }
+  };
+
   const renderProduct = ({ item }: { item: Product }) => {
     return (
       <TouchableOpacity 
         style={styles.productCard}
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.id.toString() })}
       >
         <Image
-          source={{ uri: item.image }}
+          source={{ uri: item.img || item.image }}
           style={styles.productImage}
           onError={() => {}}
         />
@@ -63,21 +131,23 @@ const HomeScreen = () => {
             {item.name}
           </Text>
           <Text style={styles.productDescription} numberOfLines={2}>
-            {item.description}
+            {item.description || ''}
           </Text>
           <View style={styles.productFooter}>
             <View>
               <Text style={styles.productPrice}>
                 {item.price.toLocaleString('vi-VN')} đ
               </Text>
-              <View style={styles.ratingContainer}>
-                <Text style={styles.rating}>⭐ {item.rating}</Text>
-                <Text style={styles.reviews}>({item.reviews})</Text>
-              </View>
+              {item.rating && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.rating}>⭐ {item.rating}</Text>
+                  {item.reviews && <Text style={styles.reviews}>({item.reviews})</Text>}
+                </View>
+              )}
             </View>
             <TouchableOpacity 
               style={styles.addButton}
-              onPress={() => addToCart(item, 1)}
+              onPress={() => handleAddToCart(item)}
             >
               <Text style={styles.addButtonText}>+</Text>
             </TouchableOpacity>
@@ -86,6 +156,17 @@ const HomeScreen = () => {
       </TouchableOpacity>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF004C" />
+          <Text style={styles.loadingText}>Đang tải...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -125,20 +206,27 @@ const HomeScreen = () => {
         <FlatList
           data={categories}
           renderItem={renderCategory}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.id.toString()}
           horizontal
           contentContainerStyle={styles.categoriesList}
         />
       </View>
 
-      <FlatList
-        data={filteredProducts}
-        renderItem={renderProduct}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.productsList}
-        columnWrapperStyle={styles.productRow}
-      />
+      {filteredProducts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🍽️</Text>
+          <Text style={styles.emptyText}>Không tìm thấy món ăn nào</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredProducts}
+          renderItem={renderProduct}
+          keyExtractor={item => item.id.toString()}
+          numColumns={2}
+          contentContainerStyle={styles.productsList}
+          columnWrapperStyle={styles.productRow}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -328,6 +416,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyIcon: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#666',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getProductById } from '../data/mockData';
+import { menuItemAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 
 type ProductDetailRouteProp = RouteProp<RootStackParamList, 'ProductDetail'>;
@@ -21,13 +22,94 @@ interface Props {
   route: ProductDetailRouteProp;
 }
 
+interface Product {
+  id: number;
+  name: string;
+  description?: string;
+  price: number;
+  img?: string;
+  image?: string;
+  rating?: number;
+  reviews?: number;
+}
+
 const ProductDetailScreen: React.FC<Props> = ({ route }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { addToCart } = useCart();
   const { productId } = route.params;
-  const product = getProductById(productId);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    loadProduct();
+  }, [productId]);
+
+  const loadProduct = async () => {
+    try {
+      setLoading(true);
+      const response = await menuItemAPI.getById(parseInt(productId));
+      setProduct({
+        ...response.data,
+        price: Number(response.data.price),
+      });
+    } catch (error) {
+      console.error('Error loading product:', error);
+      setProduct(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    
+    try {
+      await addToCart(
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.img || product.image,
+        },
+        quantity
+      );
+      Alert.alert('Thành công', `Đã thêm ${quantity} ${product.name} vào giỏ hàng`);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!product) return;
+    
+    try {
+      await addToCart(
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.img || product.image,
+        },
+        quantity
+      );
+      navigation.navigate('Cart');
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF004C" />
+          <Text style={styles.loadingText}>Đang tải...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!product) {
     return (
@@ -65,7 +147,7 @@ const ProductDetailScreen: React.FC<Props> = ({ route }) => {
             <Text style={styles.placeholderIcon}>🍽️</Text>
           ) : (
             <Image
-              source={{ uri: product.image }}
+              source={{ uri: product.img || product.image }}
               style={styles.productImage}
               onError={() => setImageError(true)}
             />
@@ -75,10 +157,12 @@ const ProductDetailScreen: React.FC<Props> = ({ route }) => {
         <View style={styles.content}>
           <View style={styles.titleSection}>
             <Text style={styles.productName}>{product.name}</Text>
-            <View style={styles.ratingContainer}>
-              <Text style={styles.rating}>⭐ {product.rating}</Text>
-              <Text style={styles.reviews}>({product.reviews} đánh giá)</Text>
-            </View>
+            {product.rating && (
+              <View style={styles.ratingContainer}>
+                <Text style={styles.rating}>⭐ {product.rating}</Text>
+                {product.reviews && <Text style={styles.reviews}>({product.reviews} đánh giá)</Text>}
+              </View>
+            )}
           </View>
 
           <View style={styles.priceSection}>
@@ -87,10 +171,12 @@ const ProductDetailScreen: React.FC<Props> = ({ route }) => {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Mô tả</Text>
-            <Text style={styles.description}>{product.description}</Text>
-          </View>
+          {product.description && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Mô tả</Text>
+              <Text style={styles.description}>{product.description}</Text>
+            </View>
+          )}
 
           <View style={styles.quantitySection}>
             <Text style={styles.sectionTitle}>Số lượng</Text>
@@ -116,19 +202,13 @@ const ProductDetailScreen: React.FC<Props> = ({ route }) => {
       <View style={styles.footer}>
         <TouchableOpacity 
           style={styles.addToCartButton}
-          onPress={() => {
-            addToCart(product, quantity);
-            Alert.alert('Thành công', `Đã thêm ${quantity} ${product.name} vào giỏ hàng`);
-          }}
+          onPress={handleAddToCart}
         >
           <Text style={styles.addToCartButtonText}>Thêm vào giỏ</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.buyNowButton}
-          onPress={() => {
-            addToCart(product, quantity);
-            navigation.navigate('Cart');
-          }}
+          onPress={handleBuyNow}
         >
           <Text style={styles.buyNowButtonText}>Mua ngay</Text>
         </TouchableOpacity>
@@ -319,6 +399,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
 });
 
