@@ -60,8 +60,11 @@ const AdminOrders = () => {
 
   // Modal states
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
+  const [orderToUpdate, setOrderToUpdate] = useState<Order | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -154,12 +157,29 @@ const AdminOrders = () => {
     try {
       await orderAPI.updateOrder(orderId, { status: newStatus });
       Alert.alert('Thành công', 'Đã cập nhật trạng thái đơn hàng');
+      setShowStatusModal(false);
+      setOrderToUpdate(null);
       loadOrders();
       if (selectedOrder?.id === orderId) {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
+    }
+  };
+
+  const handleUpdatePayment = async (orderId: number, paymentStatus: string) => {
+    try {
+      await orderAPI.updateOrder(orderId, { payment_status: paymentStatus });
+      Alert.alert('Thành công', 'Đã cập nhật trạng thái thanh toán');
+      setShowPaymentModal(false);
+      setOrderToUpdate(null);
+      loadOrders();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, payment_status: paymentStatus });
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái thanh toán');
     }
   };
 
@@ -297,14 +317,28 @@ const AdminOrders = () => {
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Thanh toán:</Text>
-                  <Text
-                    style={[
-                      styles.infoValue,
-                      order.payment_status === 'paid' ? styles.paidText : styles.unpaidText,
-                    ]}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setOrderToUpdate(order);
+                      setShowPaymentModal(true);
+                    }}
                   >
-                    {order.payment_status === 'paid' ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán'}
-                  </Text>
+                    <View
+                      style={[
+                        styles.paymentBadge,
+                        order.payment_status === 'paid' ? styles.paymentBadgePaid : styles.paymentBadgeUnpaid,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.paymentText,
+                          order.payment_status === 'paid' ? styles.paymentTextPaid : styles.paymentTextUnpaid,
+                        ]}
+                      >
+                        {order.payment_status === 'paid' ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -318,34 +352,8 @@ const AdminOrders = () => {
                 <TouchableOpacity
                   style={styles.statusButton}
                   onPress={() => {
-                    Alert.alert(
-                      'Cập nhật trạng thái',
-                      'Chọn trạng thái mới:',
-                      [
-                        { text: 'Hủy', style: 'cancel' },
-                        {
-                          text: 'Chờ xử lý',
-                          onPress: () => handleUpdateStatus(order.id, 'pending'),
-                        },
-                        {
-                          text: 'Đang xử lý',
-                          onPress: () => handleUpdateStatus(order.id, 'processing'),
-                        },
-                        {
-                          text: 'Đã gửi hàng',
-                          onPress: () => handleUpdateStatus(order.id, 'shipped'),
-                        },
-                        {
-                          text: 'Đã giao hàng',
-                          onPress: () => handleUpdateStatus(order.id, 'delivered'),
-                        },
-                        {
-                          text: 'Đã hủy',
-                          style: 'destructive',
-                          onPress: () => handleUpdateStatus(order.id, 'cancelled'),
-                        },
-                      ]
-                    );
+                    setOrderToUpdate(order);
+                    setShowStatusModal(true);
                   }}
                 >
                   <Text style={styles.statusButtonText}>✏️ Cập nhật</Text>
@@ -379,6 +387,201 @@ const AdminOrders = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Update Status Modal */}
+      <Modal visible={showStatusModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => {
+              setShowStatusModal(false);
+              setOrderToUpdate(null);
+            }}
+          />
+          <View style={styles.filterModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Cập nhật trạng thái</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowStatusModal(false);
+                  setOrderToUpdate(null);
+                }}
+              >
+                <Text style={styles.filterModalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {orderToUpdate && (
+              <View style={styles.filterModalList}>
+                <Text style={styles.filterModalSubtitle}>Đơn hàng #{orderToUpdate.id}</Text>
+                <Text style={styles.filterModalInstruction}>Chọn trạng thái mới:</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOption,
+                    orderToUpdate.status === 'pending' && styles.statusOptionActive,
+                  ]}
+                  onPress={() => handleUpdateStatus(orderToUpdate.id, 'pending')}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      orderToUpdate.status === 'pending' && styles.statusOptionTextActive,
+                    ]}
+                  >
+                    ⏳ Chờ xử lý
+                  </Text>
+                  {orderToUpdate.status === 'pending' && <Text style={styles.filterCheckmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOption,
+                    orderToUpdate.status === 'processing' && styles.statusOptionActive,
+                  ]}
+                  onPress={() => handleUpdateStatus(orderToUpdate.id, 'processing')}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      orderToUpdate.status === 'processing' && styles.statusOptionTextActive,
+                    ]}
+                  >
+                    🔄 Đang xử lý
+                  </Text>
+                  {orderToUpdate.status === 'processing' && (
+                    <Text style={styles.filterCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOption,
+                    orderToUpdate.status === 'shipped' && styles.statusOptionActive,
+                  ]}
+                  onPress={() => handleUpdateStatus(orderToUpdate.id, 'shipped')}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      orderToUpdate.status === 'shipped' && styles.statusOptionTextActive,
+                    ]}
+                  >
+                    🚚 Đã gửi hàng
+                  </Text>
+                  {orderToUpdate.status === 'shipped' && <Text style={styles.filterCheckmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOption,
+                    orderToUpdate.status === 'delivered' && styles.statusOptionActive,
+                  ]}
+                  onPress={() => handleUpdateStatus(orderToUpdate.id, 'delivered')}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      orderToUpdate.status === 'delivered' && styles.statusOptionTextActive,
+                    ]}
+                  >
+                    ✅ Đã giao hàng
+                  </Text>
+                  {orderToUpdate.status === 'delivered' && (
+                    <Text style={styles.filterCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOption,
+                    styles.statusOptionCancel,
+                    orderToUpdate.status === 'cancelled' && styles.statusOptionActive,
+                  ]}
+                  onPress={() => handleUpdateStatus(orderToUpdate.id, 'cancelled')}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      styles.statusOptionTextCancel,
+                      orderToUpdate.status === 'cancelled' && styles.statusOptionTextActive,
+                    ]}
+                  >
+                    ❌ Đã hủy
+                  </Text>
+                  {orderToUpdate.status === 'cancelled' && <Text style={styles.filterCheckmark}>✓</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Update Payment Modal */}
+      <Modal visible={showPaymentModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => {
+              setShowPaymentModal(false);
+              setOrderToUpdate(null);
+            }}
+          />
+          <View style={styles.filterModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Cập nhật thanh toán</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPaymentModal(false);
+                  setOrderToUpdate(null);
+                }}
+              >
+                <Text style={styles.filterModalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {orderToUpdate && (
+              <View style={styles.filterModalList}>
+                <Text style={styles.filterModalSubtitle}>Đơn hàng #{orderToUpdate.id}</Text>
+                <Text style={styles.filterModalInstruction}>Chọn trạng thái thanh toán:</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentOption,
+                    orderToUpdate.payment_status === 'paid' && styles.paymentOptionActive,
+                  ]}
+                  onPress={() => handleUpdatePayment(orderToUpdate.id, 'paid')}
+                >
+                  <Text
+                    style={[
+                      styles.paymentOptionText,
+                      orderToUpdate.payment_status === 'paid' && styles.paymentOptionTextActive,
+                    ]}
+                  >
+                    ✅ Đã thanh toán
+                  </Text>
+                  {orderToUpdate.payment_status === 'paid' && (
+                    <Text style={styles.filterCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentOption,
+                    orderToUpdate.payment_status === 'unpaid' && styles.paymentOptionActive,
+                  ]}
+                  onPress={() => handleUpdatePayment(orderToUpdate.id, 'unpaid')}
+                >
+                  <Text
+                    style={[
+                      styles.paymentOptionText,
+                      orderToUpdate.payment_status === 'unpaid' && styles.paymentOptionTextActive,
+                    ]}
+                  >
+                    ⏳ Chưa thanh toán
+                  </Text>
+                  {orderToUpdate.payment_status === 'unpaid' && (
+                    <Text style={styles.filterCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Order Details Modal */}
       <Modal visible={showDetailsModal} transparent animationType="slide">
@@ -625,6 +828,30 @@ const styles = StyleSheet.create({
   unpaidText: {
     color: '#F59E0B',
   },
+  paymentBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  paymentBadgePaid: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  paymentBadgeUnpaid: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  paymentText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paymentTextPaid: {
+    color: '#10B981',
+  },
+  paymentTextUnpaid: {
+    color: '#F59E0B',
+  },
   orderActions: {
     flexDirection: 'row',
     gap: 10,
@@ -692,6 +919,121 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  modalOverlayTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  filterModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '85%',
+    maxHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  filterModalClose: {
+    fontSize: 24,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  filterModalSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 15,
+  },
+  filterModalInstruction: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 15,
+    paddingHorizontal: 20,
+  },
+  filterModalList: {
+    paddingBottom: 20,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+  },
+  statusOptionActive: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FF004C',
+  },
+  statusOptionCancel: {
+    borderColor: '#DC2626',
+  },
+  statusOptionText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  statusOptionTextActive: {
+    color: '#FF004C',
+    fontWeight: '600',
+  },
+  statusOptionTextCancel: {
+    color: '#DC2626',
+  },
+  paymentOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+  },
+  paymentOptionActive: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FF004C',
+  },
+  paymentOptionText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  paymentOptionTextActive: {
+    color: '#FF004C',
+    fontWeight: '600',
+  },
+  filterCheckmark: {
+    fontSize: 18,
+    color: '#FF004C',
+    fontWeight: 'bold',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
