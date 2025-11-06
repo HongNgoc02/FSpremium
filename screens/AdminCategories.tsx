@@ -300,12 +300,12 @@ const AdminCategories = () => {
                   setCurrentCategory({ ...currentCategory, description: text })
                 }
               />
-              <TextInput
+              {/* <TextInput
                 style={styles.input}
                 placeholder="Image URL"
                 value={currentCategory.image}
                 onChangeText={(text) => setCurrentCategory({ ...currentCategory, image: text })}
-              />
+              /> */}
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -347,12 +347,12 @@ const AdminCategories = () => {
                   setCurrentCategory({ ...currentCategory, description: text })
                 }
               />
-              <TextInput
+              {/* <TextInput
                 style={styles.input}
                 placeholder="Image URL"
                 value={currentCategory.image}
                 onChangeText={(text) => setCurrentCategory({ ...currentCategory, image: text })}
-              />
+              /> */}
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity
